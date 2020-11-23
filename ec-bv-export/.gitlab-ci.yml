@@ -1,0 +1,48 @@
+stages:
+   - pre-build
+   - build
+
+# Build
+clone-product-config:
+  stage: pre-build
+  image:
+        name: alpine/git:latest
+        entrypoint: [""]
+  script:
+    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+  artifacts:
+    paths:
+      - product-config
+    expire_in: 1 day
+  only:
+    - branches
+
+
+
+# Build
+Build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}    
+    
+    - dotnet restore temp\src\Swc.EC.BvInsider\Swc.EC.BvInsider.sln
+    - dotnet build temp\src\Swc.EC.BvInsider\Swc.EC.BvInsider.sln --configuration=Release
+    
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.EC.BvInsider\Swc.EC.BvInsider.Service\bin\Release -Destination artifacts
+  only:
+    - branches
+  tags:
+    - windows-runner
+  environment:
+    name: development
+  artifacts:
+    paths:
+        - artifacts

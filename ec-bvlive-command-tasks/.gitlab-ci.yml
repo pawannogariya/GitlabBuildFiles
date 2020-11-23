@@ -1,0 +1,84 @@
+stages:
+   - pre-build
+   - build
+
+# Build
+clone-product-config:
+  stage: pre-build
+  image:
+        name: alpine/git:latest
+        entrypoint: [""]
+  script:
+    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+  artifacts:
+    paths:
+      - product-config
+    expire_in: 1 day
+  only:
+    - branches
+
+# Build
+bvlive-command-task-service-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  variables:
+    CI_BUILDS_DIR: "c:\\builds"
+    CI_PROJECT_DIR: "ec_build"
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/ec_build
+  script:
+    - echo Ok
+
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    
+    # Building bvlive command task service
+    - echo "Building bvlive command task service..."
+    - dotnet restore temp\src\Swc.BvliveCommandTaskService\Swc.BvliveCommandTaskService.Tasks.sln 
+    - dotnet build temp\src\Swc.BvliveCommandTaskService\Swc.BvliveCommandTaskService.Tasks.sln --configuration=Release
+    
+    # saving artifacts..
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.BvliveCommandTaskService\Swc.BvliveCommandTaskService.Service\bin\Release -Destination artifacts\Swc.BvliveCommandTaskService.Service
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts
+
+bvlive-equipment-bts-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  variables:
+    CI_BUILDS_DIR: "c:\\builds"
+    CI_PROJECT_DIR: "ec_build"
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/ec_build
+  script:
+    - echo Ok
+    
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    # Building bvlive equipment bts
+    - echo "Building bvlive equipment bts..."
+    - dotnet restore temp\src\Swc.BvliveEquipmentBTS\Swc.BvliveEquipmentBackgroundTasks.sln
+    - dotnet build temp\src\Swc.BvliveEquipmentBTS\Swc.BvliveEquipmentBackgroundTasks.sln --configuration=Release
+    
+    # saving artifacts..
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.BvliveEquipmentBTS\Swc.BvliveEquipmentTaskService.Service\bin\Release -Destination artifacts\Swc.BvliveEquipmentTaskService.Service
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts
+

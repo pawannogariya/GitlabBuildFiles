@@ -1,0 +1,51 @@
+stages:
+   - pre-build
+   - build
+   
+variables:
+    PRODUCT_CONFIG_DEPLOY_USERNAME: "pnogariya"
+    PRODUCT_CONFIG_DEPLOY_TOKEN: "Xs_Nws61jCQ33xJGzyuW"
+
+# Build
+clone-product-config:
+  stage: pre-build
+  image:
+        name: alpine/git:latest
+        entrypoint: [""]
+  script:
+    - git clone https://$PRODUCT_CONFIG_DEPLOY_USERNAME:$PRODUCT_CONFIG_DEPLOY_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+  artifacts:
+    paths:
+      - product-config
+    expire_in: 1 day
+  only:
+    - branches
+
+
+
+# Build
+Build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - nuget restore temp\scr\EC.FirmwareService.Client\EC.FirmwareService.Client.sln
+    - msbuild temp\scr\EC.FirmwareService.Client\EC.FirmwareService.Client.sln /p:Configuration=Release
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Get-ChildItem -Path temp\scr\EC.FirmwareService.Client\EC.FirmwareService.Client\bin\Release\netstandard2.0\ -Recurse -File | Move-Item -Destination artifacts
+    - Get-ChildItem -Path temp\scr\EC.FirmwareService.Client\EC.FirmwareService.Contracts\bin\Release\netstandard2.0\ -Recurse -File | Move-Item -Destination artifacts
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  environment:
+    name: development
+  artifacts:
+    paths:
+        - artifacts
+
