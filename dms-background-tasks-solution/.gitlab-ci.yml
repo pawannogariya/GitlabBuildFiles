@@ -1,0 +1,136 @@
+stages:
+   - pre-build
+   - build
+
+# Build
+clone-product-config:
+  stage: pre-build
+  image:
+        name: alpine/git:latest
+        entrypoint: [""]
+  script:
+    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+  artifacts:
+    paths:
+      - product-config
+    expire_in: 1 day
+  only:
+    - branches
+
+
+# Build
+task-config-service-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    - echo "Building TasksConfigService"
+    - dotnet restore temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    - nuget restore temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    #- dotnet build temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln --configuration=Release
+    - msbuild temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln /p:Configuration=Release
+    
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.TasksConfigService\Swc.TasksConfigService.WebApi\bin\ -Destination artifacts\Swc.TasksConfigService.WebApi
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts
+
+tasks-helper-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+    
+    - echo "Building TasksHelper"
+    - dotnet restore temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - nuget restore temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - dotnet build temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln --configuration=Release
+    
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.TasksHelpers\Swc.TasksHelpers\bin\Release -Destination artifacts\Swc.TasksHelpers
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts
+
+
+tasks-host-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    - echo "Building TasksHost"
+    - dotnet restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
+    #- nuget restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
+    #- dotnet build temp\src\Swc.TasksHost\Swc.TasksHost.sln --configuration=Release
+    - msbuild temp\src\Swc.TasksHost\Swc.TasksHost.sln /p:configuration=Release
+    
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.TasksHost\Swc.TasksHost\bin\Release -Destination artifacts\Swc.TasksHost
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts
+
+tasks-hub-build:
+  image: mcr.microsoft.com/dotnet/framework/sdk
+  stage: build
+  script:
+    - Get-Location
+    - echo Ok
+    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    - echo "Building TasksHub"
+    - dotnet restore temp\src\Swc.TasksHub\Swc.TasksHub.sln
+    - nuget restore temp\src\Swc.TasksHub\Swc.TasksHub.sln
+    #- dotnet build temp\src\Swc.TasksHub\Swc.TasksHub.sln --configuration=Release
+    - msbuild temp\src\Swc.TasksHub\Swc.TasksHub.sln /p:configuration=Release
+    
+    - New-Item -ItemType "directory" -Path "artifacts"
+    - Move-Item -Path temp\src\Swc.TasksHub\Swc.TasksHub.WebApi\bin\ -Destination artifacts\Swc.TasksHub.WebApi
+
+  only:
+    - branches
+  tags:
+    - windows-runner
+  artifacts:
+    paths:
+        - artifacts

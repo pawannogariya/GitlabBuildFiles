@@ -1,10 +1,6 @@
 stages:
    - pre-build
    - build
-   
-variables:
-    PRODUCT_CONFIG_DEPLOY_USERNAME: "pnogariya"
-    PRODUCT_CONFIG_DEPLOY_TOKEN: "Xs_Nws61jCQ33xJGzyuW"
 
 # Build
 clone-product-config:
@@ -13,7 +9,7 @@ clone-product-config:
         name: alpine/git:latest
         entrypoint: [""]
   script:
-    - git clone https://$PRODUCT_CONFIG_DEPLOY_USERNAME:$PRODUCT_CONFIG_DEPLOY_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
   artifacts:
     paths:
       - product-config
@@ -22,8 +18,6 @@ clone-product-config:
     - branches
 
 
-
-# Build
 Build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
@@ -31,17 +25,25 @@ Build:
     - Get-Location
     - echo Ok
     - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    - nuget restore Swc.EC.Licensing.sln
-    - msbuild Swc.EC.Licensing.sln /p:Configuration=Release
+    
+    - New-Item -ItemType "directory" -Path temp
+    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+
+    - dotnet restore temp\Swc.EC.Licensing.sln
+    - nuget restore temp\Swc.EC.Licensing.sln
+    - msbuild temp\Swc.EC.Licensing.sln /p:Configuration=Release
+    
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Get-ChildItem -Path Swc.EC.Licensing.Context\bin -Recurse -File | Move-Item -Destination artifacts
+    
+    - Move-Item -Path temp\Swc.EC.Licensing.Abstraction\bin\ -Destination artifacts\Swc.EC.Licensing.Abstraction
+    - Move-Item -Path temp\Swc.EC.Licensing.Context\bin\ -Destination artifacts\Swc.EC.Licensing.Context
+    - Move-Item -Path temp\Swc.EC.Licensing.Cryptography\bin\ -Destination artifacts\Swc.EC.Licensing.Cryptography
+    - Move-Item -Path temp\Swc.EC.Licensing.FileReader\bin\ -Destination artifacts\Swc.EC.Licensing.FileReader
   only:
     - branches
   tags:
     - windows-runner
-  environment:
-    name: development
   artifacts:
     paths:
         - artifacts
-

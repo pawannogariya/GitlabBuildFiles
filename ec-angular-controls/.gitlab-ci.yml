@@ -1,0 +1,19 @@
+stages:
+   - build
+
+# Build
+Build:
+  image: node:latest
+  stage: build
+  script:
+    - echo Ok
+    - npm install -g @angular/cli@9.1.0
+    - npm install
+    - ng build
+  only:
+    - branches
+  environment:
+    name: development
+  artifacts:
+    paths:
+      - dist/

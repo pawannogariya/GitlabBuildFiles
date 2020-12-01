@@ -2,26 +2,20 @@ stages:
    - pre-build
    - build
    
-variables:
-    PRODUCT_CONFIG_DEPLOY_USERNAME: "pnogariya"
-    PRODUCT_CONFIG_DEPLOY_TOKEN: "Xs_Nws61jCQ33xJGzyuW"
-
-# Build
+# Pre Build
 clone-product-config:
   stage: pre-build
   image:
         name: alpine/git:latest
         entrypoint: [""]
   script:
-    - git clone https://$PRODUCT_CONFIG_DEPLOY_USERNAME:$PRODUCT_CONFIG_DEPLOY_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
   artifacts:
     paths:
       - product-config
     expire_in: 1 day
   only:
     - branches
-
-
 
 # Build
 Build:
@@ -30,17 +24,19 @@ Build:
   script:
     - Get-Location
     - echo Ok
+    
     - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
     - New-Item -ItemType "directory" -Path temp
     - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
+     - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+     
     - Rename-Item temp Stylesoft.Common
-    - Get-ChildItem
-    - cd Stylesoft.Common
-    - nuget restore Stylesoft.Common.sln
-    - msbuild Stylesoft.Common.sln /p:Configuration=Release
-    - cd..
+    
+    - nuget restore Stylesoft.Common\Stylesoft.Common.sln
+    - msbuild Stylesoft.Common\Stylesoft.Common.sln /p:Configuration=Release
+    
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Get-ChildItem -Path Stylesoft.Common\Stylesoft.Common.Web\bin -Recurse -File | Move-Item -Destination artifacts
+    - Move-Item -Path Stylesoft.Common\Stylesoft.Common.Web\bin -Destination artifacts
   only:
     - branches
   tags:
