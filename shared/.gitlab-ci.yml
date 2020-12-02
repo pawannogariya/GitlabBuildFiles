@@ -17,7 +17,7 @@ clone-product-config:
   only:
     - branches
 
-authentication-service-build:
+tasks-host-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
@@ -29,13 +29,12 @@ authentication-service-build:
     - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
     - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
 
-    # Building authentication service
-    - echo "Building authentication service..."
-    - dotnet restore temp\src\Swc.AuthenticationService\Swc.AuthenticationService.sln
-    - dotnet build temp\src\Swc.AuthenticationService\Swc.AuthenticationService.sln --configuration=Release   
+    - dotnet restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
+    - nuget restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
+    - dotnet build temp\src\Swc.TasksHost\Swc.TasksHost.sln --configuration=Release   
 
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.AuthenticationService\Swc.AuthenticationService.WebApi\bin -Destination artifacts\Swc.AuthenticationService.WebApi
+    - Move-Item -Path temp\src\Swc.TasksHost\Swc.TasksHost\bin -Destination artifacts
   only:
     - branches
   tags:
@@ -44,7 +43,7 @@ authentication-service-build:
     paths:
         - artifacts
 
-alert-task-service-build:
+vendmax-data-access-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
@@ -56,152 +55,12 @@ alert-task-service-build:
     - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
     - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
 
-    # Building alert task service
-    - echo "Building alert task service..."
-    - nuget restore temp\src\Swc.Easitrax.AlertTaskService\Swc.Easitrax.AlertTaskService.sln
-    - dotnet restore temp\src\Swc.Easitrax.AlertTaskService\Swc.Easitrax.AlertTaskService.sln
-    - dotnet build temp\src\Swc.Easitrax.AlertTaskService\Swc.Easitrax.AlertTaskService.sln --configuration=Release
+    - dotnet restore temp\src\Swc.VendmaxDataAccess\Swc.VendmaxDataAccess.sln
+    - nuget restore temp\src\Swc.VendmaxDataAccess\Swc.VendmaxDataAccess.sln
+    - dotnet build temp\src\Swc.VendmaxDataAccess\Swc.VendmaxDataAccess.sln --configuration=Release
 
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.Easitrax.AlertTaskService\Swc.Easitrax.AlertTaskService.Service\bin\Release -Destination artifacts\Swc.Easitrax.AlertTaskService.Service
-  only:
-    - branches
-  tags:
-    - windows-runner
-  artifacts:
-    paths:
-        - artifacts
-
-asset-task-service-build:
-  image: mcr.microsoft.com/dotnet/framework/sdk
-  stage: build
-  script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
-    # Building asset task service
-    - echo "Building asset task service..."
-    - nuget restore temp\src\Swc.Easitrax.AssetTaskService\Swc.Easitrax.AssetTaskService.sln
-    - dotnet restore temp\src\Swc.Easitrax.AssetTaskService\Swc.Easitrax.AssetTaskService.sln
-    - dotnet build temp\src\Swc.Easitrax.AssetTaskService\Swc.Easitrax.AssetTaskService.sln --configuration=Release
-
-    - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.Easitrax.AssetTaskService\Swc.Easitrax.AssetTaskService.Service\bin\Release -Destination artifacts\Swc.Easitrax.AssetTaskService.Service
-  only:
-    - branches
-  tags:
-    - windows-runner
-  artifacts:
-    paths:
-        - artifacts
-
-auth-task-service-build:
-  image: mcr.microsoft.com/dotnet/framework/sdk
-  stage: build
-  script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
-    # Building auth task service
-    - echo "Building auth task service..."
-    - dotnet restore temp\src\Swc.Easitrax.AuthTaskService\Swc.Easitrax.AuthTaskService.sln
-    - dotnet build temp\src\Swc.Easitrax.AuthTaskService\Swc.Easitrax.AuthTaskService.sln --configuration=Release
-
-    - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.Easitrax.AuthTaskService\Swc.Easitrax.AuthTaskService.Service\bin\Release -Destination artifacts\Swc.Easitrax.AuthTaskService.Service
-  only:
-    - branches
-  tags:
-    - windows-runner
-  artifacts:
-    paths:
-        - artifacts
-
-user-profile-service-build:
-  image: mcr.microsoft.com/dotnet/framework/sdk
-  stage: build
-  script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
-    # Building user profile service
-    - echo "Building user profile service..."
-    - dotnet restore temp\src\Swc.EasiTrax.UserProfile\Swc.EasiTrax.UserProfile.sln
-    - dotnet build temp\src\Swc.EasiTrax.UserProfile\Swc.EasiTrax.UserProfile.sln --configuration=Release
-
-    - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.EasiTrax.UserProfile\Swc.EasiTrax.UserProfile.Service\bin -Destination artifacts\Swc.EasiTrax.UserProfile.Service
-  only:
-    - branches
-  tags:
-    - windows-runner
-  artifacts:
-    paths:
-        - artifacts
-
-license-task-service-build:
-  image: mcr.microsoft.com/dotnet/framework/sdk
-  stage: build
-  script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
-    # Building license task service
-    - echo "Building license task service..."
-    - dotnet restore temp\src\Swc.EC.LicenseTaskService\Swc.EC.LicenseTaskService.sln
-    - dotnet build temp\src\Swc.EC.LicenseTaskService\Swc.EC.LicenseTaskService.sln --configuration=Release    
-
-    - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.EC.LicenseTaskService\Swc.EC.LicenseTaskService.Service\bin -Destination artifacts\Swc.EC.LicenseTaskService.Service
-  only:
-    - branches
-  tags:
-    - windows-runner
-  artifacts:
-    paths:
-        - artifacts
-
-
-portal-site-build:
-  image: mcr.microsoft.com/dotnet/framework/sdk
-  stage: build
-  script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
-    # Building watson portal site solution
-    - echo "Building watson.portal.site..."
-    - nuget restore temp\src\Watson.Portal\Watson.Portal.Site.sln
-    #- dotnet restore temp\src\Watson.Portal\Watson.Portal.Site.sln
-    - dotnet build temp\src\Watson.Portal\Watson.Portal.Site.sln --configuration=Release
-
-    - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Watson.Portal\Watson.Portal.Site\bin\ -Destination artifacts\Watson.Portal.Site
+    - Move-Item -Path temp\src\Swc.VendmaxDataAccess\Swc.VendmaxDataAccessClient\bin\Release -Destination artifacts
   only:
     - branches
   tags:
