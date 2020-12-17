@@ -1,56 +1,45 @@
 stages:
-   - pre-build
+   - config
    - build
-
-# Pre Build
-clone-product-config:
-  stage: pre-build
-  image:
-        name: alpine/git:latest
-        entrypoint: [""]
-  script:
-    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
-  artifacts:
-    paths:
-      - product-config
-    expire_in: 1 day
-  only:
-    - branches
+   - scan
 
 # Build
-clone-stylesoft-common:
-  stage: pre-build
+folder-structure-preparation:
   image:
-        name: alpine/git:latest
-        entrypoint: [""]
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  stage: config
   script:
-    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/common.git Stylesoft.Common
+    - git clone https://$GITLAB_LOGIN_USER_NAME`:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+    
+    - git clone https://$GITLAB_LOGIN_USER_NAME`:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/common.git Stylesoft.Common
+    
+    - New-item -Path nuget.config -itemtype "file" -value $NUGET_CONFIG
+    
+    - New-Item -ItemType "directory" -Path repository
+    - Get-ChildItem -Path . -Name -Exclude repository,product-config,Stylesoft.Common | Move-Item -Destination repository
+    - New-Item -ItemType "directory" -Path final
+    - Get-ChildItem -Path . -Name -Exclude final | Move-Item -Destination final  
+    
+    - Get-ChildItem -Path final\repository -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
+  tags:
+    - windows-runner
   artifacts:
     paths:
-      - Stylesoft.Common
+      - final
     expire_in: 1 day
-  only:
-    - branches
 
 # Build
 Build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
-    - Get-Location
-    - echo Ok
-
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config,Stylesoft.Common | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-    
-    - nuget restore temp\src\SWConnect.Email.sln
-    - dotnet restore temp\src\SWConnect.Email.sln
-    - msbuild temp\src\SWConnect.Email.sln /p:Configuration=Release
+    - nuget restore final\repository\src\SWConnect.Email.sln
+    - dotnet restore final\repository\src\SWConnect.Email.sln
+    - msbuild final\repository\src\SWConnect.Email.sln /p:Configuration=Release
     
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\StreamwareConnect.EmailSenderTaskService\bin\Release -Destination artifacts
+    - Move-Item -Path final\repository\src\StreamwareConnect.EmailSenderTaskService\bin\Release -Destination artifacts
   only:
     - branches
   tags:
@@ -60,3 +49,37 @@ Build:
   artifacts:
     paths:
         - artifacts
+
+blackduck_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: MVN-AWS-DMS-Email-Service
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:maven-3-jdk-8
+    entrypoint: [""]
+  script:
+    - export COMMIT_TIME=$(git show -s --format=%ct $CI_COMMIT_SHA)
+    - echo $COMMIT_TIME
+    - bash <(curl -s -L https://detect.synopsys.com/detect.sh)  --blackduck.url=https://blackduck.cpicloudservices.com/ --blackduck.username=$BLACKDUCK_USER --blackduck.password=$BLACKDUCK_PASSWORD
+      --blackduck.trust.cert=true --detect.project.name=$PROJECT_NAME '--detect.source.path=$CI_PROJECT_DIR' 
+      '--detect.project.version.name=$PROJECT_NAME:$CI_COMMIT_BRANCH Date:$COMMIT_TIME' '--detect.blackduck.signature.scanner.snippet.matching=FULL_SNIPPET_MATCHING'
+      
+coverity_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: AWS-EC-DMS-Email-Service
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  script:
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-configure.exe --cs
+   
+    - echo "Scanning alert task service"
+    - nuget restore final\repository\src\SWConnect.Email.sln
+    - dotnet restore final\repository\src\SWConnect.Email.sln
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-build.exe --dir idir msbuild final\repository\src\SWConnect.Email.sln /p:Configuration=Release
+
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-analyze.exe --dir idir --all --enable-audit-mode --enable-constraint-fpp --disable-parse-warnings -n LOG_INJECTION -en RISKY_CRYPTO -en HARDCODED_CREDENTIALS -en WEAK_PASSWORD_HASH -en UNENCRYPTED_SENSITIVE_DATA -en WEAK_GUARD -en AUDIT.SPECULATIVE_EXECUTION_DATA_LEAK -en DC.STRING_BUFFER -en ENUM_AS_BOOLEAN -en INTEGER_OVERFLOW -en MIXED_ENUMS -en USER_POINTER -en FLOATING_POINT_EQUALITY -en VCALL_IN_CTOR_DTOR --webapp-security
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-commit-defects.exe --dir idir --url http://coverity.cpicloudservices.com:14800 --on-new-cert trust --stream $PROJECT_NAME --user $COVERITY_USER --password $COVERITY_PASSWORD
+  tags:
+    - windows-runner      

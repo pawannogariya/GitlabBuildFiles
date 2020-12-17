@@ -1,21 +1,29 @@
 stages:
-   - pre-build
+   - config
    - build
+   - scan
 
 # Build
-clone-product-config:
-  stage: pre-build
+folder-structure-preparation:
   image:
-        name: alpine/git:latest
-        entrypoint: [""]
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  stage: config
   script:
-    - git clone https://$GITLAB_LOGIN_USER_NAME:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+    - git clone https://$GITLAB_LOGIN_USER_NAME`:$GITLAB_ACCESS_TOKEN@gitlab.cpicloudservices.com/engineering/easitrax-connect/swc/product-config.git
+    
+    - New-item -Path nuget.config -itemtype "file" -value $NUGET_CONFIG
+    #- Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
+    - New-Item -ItemType "directory" -Path repository
+    - Get-ChildItem -Path . -Name -Exclude repository,product-config | Move-Item -Destination repository
+    - New-Item -ItemType "directory" -Path final
+    - Get-ChildItem -Path . -Name -Exclude final | Move-Item -Destination final  
+  tags:
+    - windows-runner
   artifacts:
     paths:
-      - product-config
+      - final
     expire_in: 1 day
-  only:
-    - branches
 
 
 # Build
@@ -23,22 +31,15 @@ task-config-service-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
 
     - echo "Building TasksConfigService"
-    - dotnet restore temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
-    - nuget restore temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
-    #- dotnet build temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln --configuration=Release
-    - msbuild temp\src\Swc.TasksConfigService\Swc.TasksConfigService.sln /p:Configuration=Release
+    - dotnet restore final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    - nuget restore final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    #- dotnet build final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln --configuration=Release
+    - msbuild final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln /p:Configuration=Release
     
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.TasksConfigService\Swc.TasksConfigService.WebApi\bin\ -Destination artifacts\Swc.TasksConfigService.WebApi
+    - Move-Item -Path final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.WebApi\bin\ -Destination artifacts\Swc.TasksConfigService.WebApi
 
   only:
     - branches
@@ -52,21 +53,14 @@ tasks-helper-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-    
+  
     - echo "Building TasksHelper"
-    - dotnet restore temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
-    - nuget restore temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
-    - dotnet build temp\src\Swc.TasksHelpers\Swc.TasksHelpers.sln --configuration=Release
+    - dotnet restore final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - nuget restore final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - dotnet build final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln --configuration=Release
     
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.TasksHelpers\Swc.TasksHelpers\bin\Release -Destination artifacts\Swc.TasksHelpers
+    - Move-Item -Path final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers\bin\Release -Destination artifacts\Swc.TasksHelpers
 
   only:
     - branches
@@ -81,22 +75,15 @@ tasks-host-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
+  
     - echo "Building TasksHost"
-    - dotnet restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
-    #- nuget restore temp\src\Swc.TasksHost\Swc.TasksHost.sln
-    #- dotnet build temp\src\Swc.TasksHost\Swc.TasksHost.sln --configuration=Release
-    - msbuild temp\src\Swc.TasksHost\Swc.TasksHost.sln /p:configuration=Release
+    - dotnet restore final\repository\src\Swc.TasksHost\Swc.TasksHost.sln
+    #- nuget restore final\repository\src\Swc.TasksHost\Swc.TasksHost.sln
+    #- dotnet build final\repository\src\Swc.TasksHost\Swc.TasksHost.sln --configuration=Release
+    - msbuild final\repository\src\Swc.TasksHost\Swc.TasksHost.sln /p:configuration=Release
     
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.TasksHost\Swc.TasksHost\bin\Release -Destination artifacts\Swc.TasksHost
+    - Move-Item -Path final\repository\src\Swc.TasksHost\Swc.TasksHost\bin\Release -Destination artifacts\Swc.TasksHost
 
   only:
     - branches
@@ -110,22 +97,13 @@ tasks-hub-build:
   image: mcr.microsoft.com/dotnet/framework/sdk
   stage: build
   script:
-    - Get-Location
-    - echo Ok
-    - Copy-Item -Path product-config\NugetConfig\nuget.config -Destination .
-    
-    - New-Item -ItemType "directory" -Path temp
-    - Get-ChildItem -Path . -Name -Exclude temp,product-config | Move-Item -Destination temp
-    - Get-ChildItem -Path temp -Recurse -Include nuget.config | % {(Get-Content $_.fullName).replace($STYLESOFT_NUGET_SOURCE, $EASITRAX_PROGET_NUGET_SOURCE) | Set-Content $_.fullName}
-
     - echo "Building TasksHub"
-    - dotnet restore temp\src\Swc.TasksHub\Swc.TasksHub.sln
-    - nuget restore temp\src\Swc.TasksHub\Swc.TasksHub.sln
-    #- dotnet build temp\src\Swc.TasksHub\Swc.TasksHub.sln --configuration=Release
-    - msbuild temp\src\Swc.TasksHub\Swc.TasksHub.sln /p:configuration=Release
+    - dotnet restore final\repository\src\Swc.TasksHub\Swc.TasksHub.sln
+    - nuget restore final\repository\src\Swc.TasksHub\Swc.TasksHub.sln
+    - msbuild final\repository\src\Swc.TasksHub\Swc.TasksHub.sln /p:configuration=Release
     
     - New-Item -ItemType "directory" -Path "artifacts"
-    - Move-Item -Path temp\src\Swc.TasksHub\Swc.TasksHub.WebApi\bin\ -Destination artifacts\Swc.TasksHub.WebApi
+    - Move-Item -Path final\repository\src\Swc.TasksHub\Swc.TasksHub.WebApi\bin\ -Destination artifacts\Swc.TasksHub.WebApi
 
   only:
     - branches
@@ -134,3 +112,102 @@ tasks-hub-build:
   artifacts:
     paths:
         - artifacts
+
+blackduck_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: MVN-AWS-EC-Watson
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:maven-3-jdk-8
+    entrypoint: [""]
+  script:
+    - export COMMIT_TIME=$(git show -s --format=%ct $CI_COMMIT_SHA)
+    - echo $COMMIT_TIME
+    - bash <(curl -s -L https://detect.synopsys.com/detect.sh)  --blackduck.url=https://blackduck.cpicloudservices.com/ --blackduck.username=$BLACKDUCK_USER --blackduck.password=$BLACKDUCK_PASSWORD
+      --blackduck.trust.cert=true --detect.project.name=$PROJECT_NAME '--detect.source.path=$CI_PROJECT_DIR' 
+      '--detect.project.version.name=$PROJECT_NAME:$CI_COMMIT_BRANCH Date:$COMMIT_TIME' '--detect.blackduck.signature.scanner.snippet.matching=FULL_SNIPPET_MATCHING'
+
+task-config-service-coverity_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: AWS-EC-DMSbackgroundtaskssolution-Tasks-Config-Service
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  script:
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-configure.exe --cs
+   
+    - echo "Scanning alert task service"
+    - dotnet restore final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    - nuget restore final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-build.exe --dir idir msbuild final\repository\src\Swc.TasksConfigService\Swc.TasksConfigService.sln /p:Configuration=Release
+
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-analyze.exe --dir idir --all --enable-audit-mode --enable-constraint-fpp --disable-parse-warnings -n LOG_INJECTION -en RISKY_CRYPTO -en HARDCODED_CREDENTIALS -en WEAK_PASSWORD_HASH -en UNENCRYPTED_SENSITIVE_DATA -en WEAK_GUARD -en AUDIT.SPECULATIVE_EXECUTION_DATA_LEAK -en DC.STRING_BUFFER -en ENUM_AS_BOOLEAN -en INTEGER_OVERFLOW -en MIXED_ENUMS -en USER_POINTER -en FLOATING_POINT_EQUALITY -en VCALL_IN_CTOR_DTOR --webapp-security
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-commit-defects.exe --dir idir --url http://coverity.cpicloudservices.com:14800 --on-new-cert trust --stream $PROJECT_NAME --user $COVERITY_USER --password $COVERITY_PASSWORD
+  tags:
+    - windows-runner
+
+
+tasks-helper-coverity_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: AWS-EC-DMSbackgroundtaskssolution-Tasks-Helper
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  script:
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-configure.exe --cs
+   
+    - echo "Scanning alert task service"
+    - dotnet restore final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - nuget restore final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-build.exe --dir idir dotnet build final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln --configuration=Release
+
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-analyze.exe --dir idir --all --enable-audit-mode --enable-constraint-fpp --disable-parse-warnings -n LOG_INJECTION -en RISKY_CRYPTO -en HARDCODED_CREDENTIALS -en WEAK_PASSWORD_HASH -en UNENCRYPTED_SENSITIVE_DATA -en WEAK_GUARD -en AUDIT.SPECULATIVE_EXECUTION_DATA_LEAK -en DC.STRING_BUFFER -en ENUM_AS_BOOLEAN -en INTEGER_OVERFLOW -en MIXED_ENUMS -en USER_POINTER -en FLOATING_POINT_EQUALITY -en VCALL_IN_CTOR_DTOR --webapp-security
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-commit-defects.exe --dir idir --url http://coverity.cpicloudservices.com:14800 --on-new-cert trust --stream $PROJECT_NAME --user $COVERITY_USER --password $COVERITY_PASSWORD
+  tags:
+    - windows-runner
+
+tasks-host-coverity_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: AWS-EC-DMSbackgroundtaskssolution-Tasks-Host
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  script:
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-configure.exe --cs
+   
+    - echo "Scanning alert task service"
+    - dotnet restore final\repository\src\Swc.TasksHost\Swc.TasksHost.sln
+    - nuget restore final\repository\src\Swc.TasksHelpers\Swc.TasksHelpers.sln
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-build.exe --dir idir msbuild final\repository\src\Swc.TasksHost\Swc.TasksHost.sln /p:configuration=Release
+
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-analyze.exe --dir idir --all --enable-audit-mode --enable-constraint-fpp --disable-parse-warnings -n LOG_INJECTION -en RISKY_CRYPTO -en HARDCODED_CREDENTIALS -en WEAK_PASSWORD_HASH -en UNENCRYPTED_SENSITIVE_DATA -en WEAK_GUARD -en AUDIT.SPECULATIVE_EXECUTION_DATA_LEAK -en DC.STRING_BUFFER -en ENUM_AS_BOOLEAN -en INTEGER_OVERFLOW -en MIXED_ENUMS -en USER_POINTER -en FLOATING_POINT_EQUALITY -en VCALL_IN_CTOR_DTOR --webapp-security
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-commit-defects.exe --dir idir --url http://coverity.cpicloudservices.com:14800 --on-new-cert trust --stream $PROJECT_NAME --user $COVERITY_USER --password $COVERITY_PASSWORD
+  tags:
+    - windows-runner
+
+
+
+tasks-hub-coverity_scan:
+  stage: scan
+  variables:
+    PROJECT_NAME: AWS-EC-DMSbackgroundtaskssolution-Tasks-Hub
+  image:
+    name: registry.gitlab.cpicloudservices.com/it/security/coverity-analysis-docker:dotnet-framework-sdk
+    entrypoint: [""]
+  script:
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-configure.exe --cs
+   
+    - echo "Scanning alert task service"
+    - dotnet restore final\repository\src\Swc.TasksHub\Swc.TasksHub.sln
+    - nuget restore final\repository\src\Swc.TasksHub\Swc.TasksHub.sln
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-build.exe --dir idir msbuild final\repository\src\Swc.TasksHub\Swc.TasksHub.sln /p:configuration=Release
+
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-analyze.exe --dir idir --all --enable-audit-mode --enable-constraint-fpp --disable-parse-warnings -n LOG_INJECTION -en RISKY_CRYPTO -en HARDCODED_CREDENTIALS -en WEAK_PASSWORD_HASH -en UNENCRYPTED_SENSITIVE_DATA -en WEAK_GUARD -en AUDIT.SPECULATIVE_EXECUTION_DATA_LEAK -en DC.STRING_BUFFER -en ENUM_AS_BOOLEAN -en INTEGER_OVERFLOW -en MIXED_ENUMS -en USER_POINTER -en FLOATING_POINT_EQUALITY -en VCALL_IN_CTOR_DTOR --webapp-security
+    - C:/cov/cov-analysis-win64-2020.09/bin/cov-commit-defects.exe --dir idir --url http://coverity.cpicloudservices.com:14800 --on-new-cert trust --stream $PROJECT_NAME --user $COVERITY_USER --password $COVERITY_PASSWORD
+  tags:
+    - windows-runner
+
+
